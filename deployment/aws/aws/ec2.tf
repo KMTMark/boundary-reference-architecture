@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 locals {
-  priv_ssh_key_real = coalesce(var.priv_ssh_key_path,trimsuffix(var.pub_ssh_key_path,".pub"))
+  priv_ssh_key_real = coalesce(var.priv_ssh_key_path, trimsuffix(var.pub_ssh_key_path, ".pub"))
 }
 
 resource "aws_key_pair" "boundary" {
@@ -110,7 +110,7 @@ resource "aws_instance" "controller" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = "t3.micro"
   iam_instance_profile        = aws_iam_instance_profile.boundary.name
-  subnet_id                   = aws_subnet.public.*.id[count.index]
+  subnet_id                   = aws_subnet.private.*.id[count.index]
   key_name                    = aws_key_pair.boundary.key_name
   vpc_security_group_ids      = [aws_security_group.controller.id]
   associate_public_ip_address = true
@@ -192,7 +192,7 @@ resource "aws_security_group_rule" "allow_ssh_controller" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
 

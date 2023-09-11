@@ -5,7 +5,7 @@ resource "aws_db_instance" "boundary" {
   allocated_storage   = 20
   storage_type        = "gp2"
   engine              = "postgres"
-  engine_version      = "14.2"
+  engine_version      = "15.4"
   instance_class      = "db.t3.micro"
   name                = "boundary"
   username            = "boundary"
@@ -38,18 +38,18 @@ resource "aws_security_group_rule" "allow_controller_sg" {
   source_security_group_id = aws_security_group.controller.id
 }
 
-resource "aws_security_group_rule" "allow_any_ingress" {
-  type              = "ingress"
-  from_port         = 5432
-  to_port           = 5432
-  protocol          = "tcp"
-  security_group_id = aws_security_group.db.id
-  cidr_blocks       = ["0.0.0.0/0"]
-}
+# resource "aws_security_group_rule" "allow_any_ingress" {
+#   type              = "ingress"
+#   from_port         = 5432
+#   to_port           = 5432
+#   protocol          = "tcp"
+#   security_group_id = aws_security_group.db.id
+#   cidr_blocks       = ["0.0.0.0/0"]
+# }
 
 resource "aws_db_subnet_group" "boundary" {
   name       = "boundary"
-  subnet_ids = aws_subnet.public.*.id
+  subnet_ids = aws_subnet.private.*.id
 
   tags = {
     Name = "${var.tag}-db-${random_pet.test.id}"

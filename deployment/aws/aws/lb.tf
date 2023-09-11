@@ -3,10 +3,10 @@
 
 resource "aws_lb" "controller" {
   # Truncate any characters of name that are longer than 32 characters which is the limit imposed by Amazon for the name of a load balancer
-  name               = "${substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))}"
+  name               = substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))
   load_balancer_type = "network"
-  internal           = false
-  subnets            = aws_subnet.public.*.id
+  internal           = true
+  subnets            = aws_subnet.private.*.id
 
   tags = {
     Name = "${substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))}"
@@ -14,7 +14,7 @@ resource "aws_lb" "controller" {
 }
 
 resource "aws_lb_target_group" "controller" {
-  name     = "${substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))}"
+  name     = substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))
   port     = 9200
   protocol = "TCP"
   vpc_id   = aws_vpc.main.id
@@ -59,6 +59,6 @@ resource "aws_security_group_rule" "allow_9200" {
   from_port         = 9200
   to_port           = 9200
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller_lb.id
 }
