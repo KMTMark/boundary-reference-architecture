@@ -15,7 +15,7 @@ listener "tcp" {
 
 worker {
   # Name attr must be unique
-	public_addr = "${public_ip}"
+	public_addr = "${private_ip}"
 	name = "demo-worker-${name_suffix}"
 	description = "A default worker created for demonstration"
 	controllers = [

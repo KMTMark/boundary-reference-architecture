@@ -29,14 +29,14 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_instance" "worker" {
-  count                       = var.num_workers
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.micro"
-  iam_instance_profile        = aws_iam_instance_profile.boundary.name
-  subnet_id                   = aws_subnet.public.*.id[count.index]
-  key_name                    = aws_key_pair.boundary.key_name
-  vpc_security_group_ids      = [aws_security_group.worker.id]
-  associate_public_ip_address = true
+  count                  = var.num_workers
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  iam_instance_profile   = aws_iam_instance_profile.boundary.name
+  subnet_id              = aws_subnet.private.*.id[count.index]
+  key_name               = aws_key_pair.boundary.key_name
+  vpc_security_group_ids = [aws_security_group.worker.id]
+  # associate_public_ip_address = true
 
   connection {
     type         = "ssh"
@@ -70,7 +70,7 @@ resource "aws_instance" "worker" {
     content = templatefile("${path.module}/install/worker.hcl.tpl", {
       controller_ips         = aws_instance.controller.*.private_ip
       name_suffix            = count.index
-      public_ip              = self.public_ip
+      public_ip              = self.private_ip
       private_ip             = self.private_ip
       tls_disabled           = var.tls_disabled
       tls_key_path           = var.tls_key_path
@@ -106,20 +106,20 @@ resource "aws_instance" "worker" {
 
 
 resource "aws_instance" "controller" {
-  count                       = var.num_controllers
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.micro"
-  iam_instance_profile        = aws_iam_instance_profile.boundary.name
-  subnet_id                   = aws_subnet.private.*.id[count.index]
-  key_name                    = aws_key_pair.boundary.key_name
-  vpc_security_group_ids      = [aws_security_group.controller.id]
-  associate_public_ip_address = true
+  count                  = var.num_controllers
+  ami                    = data.aws_ami.ubuntu.id
+  instance_type          = "t3.micro"
+  iam_instance_profile   = aws_iam_instance_profile.boundary.name
+  subnet_id              = aws_subnet.private.*.id[count.index]
+  key_name               = aws_key_pair.boundary.key_name
+  vpc_security_group_ids = [aws_security_group.controller.id]
+  # associate_public_ip_address = true
 
   connection {
     type        = "ssh"
     user        = "ubuntu"
     private_key = file(local.priv_ssh_key_real)
-    host        = self.public_ip
+    host        = self.private_ip
   }
 
   provisioner "remote-exec" {
@@ -201,7 +201,7 @@ resource "aws_security_group_rule" "allow_9200_controller" {
   from_port         = 9200
   to_port           = 9200
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
 
@@ -210,7 +210,7 @@ resource "aws_security_group_rule" "allow_9201_controller" {
   from_port         = 9201
   to_port           = 9201
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
 
@@ -236,7 +236,7 @@ resource "aws_security_group_rule" "allow_ssh_worker" {
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.worker.id
 }
 
@@ -254,7 +254,7 @@ resource "aws_security_group_rule" "allow_9202_worker" {
   from_port         = 9202
   to_port           = 9202
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.worker.id
 }
 
