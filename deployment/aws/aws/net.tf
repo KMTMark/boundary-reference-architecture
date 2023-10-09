@@ -14,3 +14,11 @@ data "aws_vpc" "name" {
     Name = var.vpc_name
   }
 }
+
+data "aws_subnet_ids" "private" {
+  vpc_id = data.aws_vpc.name.id
+  filter {
+    name   = "tag:Name"
+    values = ["*private*"]
+  }
+}

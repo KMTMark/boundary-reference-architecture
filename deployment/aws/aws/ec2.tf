@@ -33,7 +33,7 @@ resource "aws_instance" "worker" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   iam_instance_profile   = aws_iam_instance_profile.boundary.name
-  subnet_id              = aws_subnet.private.*.id[count.index]
+  subnet_id              = data.aws_subnet_ids.private.ids[0]
   key_name               = aws_key_pair.boundary.key_name
   vpc_security_group_ids = [aws_security_group.worker.id]
   # associate_public_ip_address = true
@@ -43,7 +43,7 @@ resource "aws_instance" "worker" {
     user         = "ubuntu"
     private_key  = file(local.priv_ssh_key_real)
     host         = self.private_ip
-    bastion_host = aws_instance.controller[count.index].public_ip
+    bastion_host = aws_instance.controller[count.index].private_ip
   }
 
   provisioner "remote-exec" {
@@ -197,20 +197,22 @@ resource "aws_security_group_rule" "allow_ssh_controller" {
 }
 
 resource "aws_security_group_rule" "allow_9200_controller" {
-  type              = "ingress"
-  from_port         = 9200
-  to_port           = 9200
-  protocol          = "tcp"
-  cidr_blocks       = ["172.30.0.0/24"]
+  type                     = "ingress"
+  from_port                = 9200
+  to_port                  = 9200
+  protocol                 = "tcp"
+  source_security_group_id = [aws_security_group.controller_lb.id]
+  # cidr_blocks       = [data.aws_subnet_ids.cidr_blocks]
   security_group_id = aws_security_group.controller.id
 }
 
 resource "aws_security_group_rule" "allow_9201_controller" {
-  type              = "ingress"
-  from_port         = 9201
-  to_port           = 9201
-  protocol          = "tcp"
-  cidr_blocks       = ["172.30.0.0/24"]
+  type                     = "ingress"
+  from_port                = 9201
+  to_port                  = 9201
+  protocol                 = "tcp"
+  source_security_group_id = [aws_security_group.controller_lb.id]
+  # cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
 
@@ -245,7 +247,7 @@ resource "aws_security_group_rule" "allow_web_worker" {
   from_port         = 8000
   to_port           = 8000
   protocol          = "tcp"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = ["72.30.0.0/24"]
   security_group_id = aws_security_group.worker.id
 }
 
@@ -272,7 +274,7 @@ resource "aws_instance" "target" {
   count                  = var.num_targets
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.private.*.id[count.index]
+  subnet_id              = data.aws_subnet_ids.private.ids[0]
   key_name               = aws_key_pair.boundary.key_name
   vpc_security_group_ids = [aws_security_group.worker.id]
 
