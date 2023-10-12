@@ -206,12 +206,22 @@ resource "aws_security_group_rule" "allow_9200_controller" {
   security_group_id = aws_security_group.controller.id
 }
 
-resource "aws_security_group_rule" "allow_9201_controller" {
+resource "aws_security_group_rule" "allow_9201_lb_controller" {
   type                     = "ingress"
   from_port                = 9201
   to_port                  = 9201
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.controller_lb.id
+  # cidr_blocks       = ["172.30.0.0/24"]
+  security_group_id = aws_security_group.controller.id
+}
+
+resource "aws_security_group_rule" "allow_9201_worker_controller" {
+  type                     = "ingress"
+  from_port                = 9201
+  to_port                  = 9201
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
   # cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
@@ -284,11 +294,37 @@ resource "aws_instance" "target" {
   count                  = var.num_targets
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnets.private.ids[0]
+  subnet_id              = data.aws_subnets.private.ids[count.index]
   key_name               = aws_key_pair.boundary.key_name
-  vpc_security_group_ids = [aws_security_group.worker.id]
+  vpc_security_group_ids = [aws_security_group.target.id]
 
   tags = {
     Name = "${var.tag}-target-${random_pet.test.id}"
   }
+}
+
+resource "aws_security_group" "target" {
+  vpc_id = data.aws_vpc.main.id
+
+  tags = {
+    Name = "${var.tag}-target-${random_pet.test.id}"
+  }
+}
+
+resource "aws_security_group_rule" "allow_worker_ssh_target" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
+  security_group_id        = aws_security_group.target.id
+}
+
+resource "aws_security_group_rule" "allow_worker_web_target" {
+  type                     = "ingress"
+  from_port                = 8000
+  to_port                  = 8000
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
+  security_group_id        = aws_security_group.target.id
 }

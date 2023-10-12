@@ -64,6 +64,16 @@ resource "aws_security_group_rule" "allow_9200" {
   security_group_id = aws_security_group.controller_lb.id
 }
 
+resource "aws_security_group_rule" "allow_9201_workers" {
+  type                     = "ingress"
+  from_port                = 9201
+  to_port                  = 9201
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.worker.id
+  # cidr_blocks       = ["172.30.0.0/24"]
+  security_group_id = aws_security_group.controller_lb.id
+}
+
 resource "aws_security_group_rule" "allow_egress_lb" {
   type              = "egress"
   from_port         = 0
