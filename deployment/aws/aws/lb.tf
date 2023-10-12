@@ -6,7 +6,8 @@ resource "aws_lb" "controller" {
   name               = substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))
   load_balancer_type = "network"
   internal           = true
-  subnets            = aws_subnet.private.*.id
+  security_groups    = [aws_security_group.controller_lb.id]
+  subnets            = data.aws_subnets.private.ids
 
   tags = {
     Name = "${substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))}"
@@ -17,7 +18,7 @@ resource "aws_lb_target_group" "controller" {
   name     = substr("${var.tag}-controller-${random_pet.test.id}", 0, min(length("${var.tag}-controller-${random_pet.test.id}"), 32))
   port     = 9200
   protocol = "TCP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.aws_vpc.main.id
 
   stickiness {
     enabled = false
@@ -47,7 +48,7 @@ resource "aws_lb_listener" "controller" {
 }
 
 resource "aws_security_group" "controller_lb" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   tags = {
     Name = "${var.tag}-controller-lb-${random_pet.test.id}"
@@ -60,5 +61,14 @@ resource "aws_security_group_rule" "allow_9200" {
   to_port           = 9200
   protocol          = "tcp"
   cidr_blocks       = ["172.30.0.0/24"]
+  security_group_id = aws_security_group.controller_lb.id
+}
+
+resource "aws_security_group_rule" "allow_egress_lb" {
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
   security_group_id = aws_security_group.controller_lb.id
 }

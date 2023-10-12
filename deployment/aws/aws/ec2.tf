@@ -33,7 +33,7 @@ resource "aws_instance" "worker" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   iam_instance_profile   = aws_iam_instance_profile.boundary.name
-  subnet_id              = data.aws_subnet_ids.private.ids[0]
+  subnet_id              = data.aws_subnets.private.ids[count.index]
   key_name               = aws_key_pair.boundary.key_name
   vpc_security_group_ids = [aws_security_group.worker.id]
   # associate_public_ip_address = true
@@ -110,7 +110,7 @@ resource "aws_instance" "controller" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
   iam_instance_profile   = aws_iam_instance_profile.boundary.name
-  subnet_id              = aws_subnet.private.*.id[count.index]
+  subnet_id              = data.aws_subnets.private.ids[count.index]
   key_name               = aws_key_pair.boundary.key_name
   vpc_security_group_ids = [aws_security_group.controller.id]
   # associate_public_ip_address = true
@@ -180,7 +180,7 @@ resource "aws_instance" "controller" {
 }
 
 resource "aws_security_group" "controller" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   tags = {
     Name = "${var.tag}-controller-${random_pet.test.id}"
@@ -201,7 +201,7 @@ resource "aws_security_group_rule" "allow_9200_controller" {
   from_port                = 9200
   to_port                  = 9200
   protocol                 = "tcp"
-  source_security_group_id = [aws_security_group.controller_lb.id]
+  source_security_group_id = aws_security_group.controller_lb.id
   # cidr_blocks       = [data.aws_subnet_ids.cidr_blocks]
   security_group_id = aws_security_group.controller.id
 }
@@ -211,7 +211,7 @@ resource "aws_security_group_rule" "allow_9201_controller" {
   from_port                = 9201
   to_port                  = 9201
   protocol                 = "tcp"
-  source_security_group_id = [aws_security_group.controller_lb.id]
+  source_security_group_id = aws_security_group.controller_lb.id
   # cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.controller.id
 }
@@ -226,19 +226,29 @@ resource "aws_security_group_rule" "allow_egress_controller" {
 }
 
 resource "aws_security_group" "worker" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   tags = {
     Name = "${var.tag}-worker-${random_pet.test.id}"
   }
 }
 
-resource "aws_security_group_rule" "allow_ssh_worker" {
+resource "aws_security_group_rule" "allow_vpn_ssh_worker" {
   type              = "ingress"
   from_port         = 22
   to_port           = 22
   protocol          = "tcp"
   cidr_blocks       = ["172.30.0.0/24"]
+  security_group_id = aws_security_group.worker.id
+}
+
+resource "aws_security_group_rule" "allow_controller_ssh_worker" {
+  type                     = "ingress"
+  from_port                = 22
+  to_port                  = 22
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.controller.id
+  # cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.worker.id
 }
 
@@ -274,7 +284,7 @@ resource "aws_instance" "target" {
   count                  = var.num_targets
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnet_ids.private.ids[0]
+  subnet_id              = data.aws_subnets.private.ids[0]
   key_name               = aws_key_pair.boundary.key_name
   vpc_security_group_ids = [aws_security_group.worker.id]
 

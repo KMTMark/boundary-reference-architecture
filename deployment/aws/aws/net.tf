@@ -9,16 +9,30 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
-data "aws_vpc" "name" {
-  tags = {
-    Name = var.vpc_name
+data "aws_vpc" "main" {
+  filter {
+    name   = "tag:Name"
+    values = ["systems-lab"]
   }
 }
 
-data "aws_subnet_ids" "private" {
-  vpc_id = data.aws_vpc.name.id
+data "aws_subnets" "private" {
   filter {
-    name   = "tag:Name"
-    values = ["*private*"]
+    name   = "vpc-id"
+    values = [data.aws_vpc.main.id]
   }
+
+  tags = {
+    Name = "*private*"
+  }
+  # vpc_id = data.aws_vpc.main.id
+  # filter {
+  #   name   = "tag:Name"
+  #   values = ["*private*"]
+  # }
+}
+
+data "aws_subnet" "private" {
+  for_each = toset(data.aws_subnets.private.ids)
+  id       = each.value
 }

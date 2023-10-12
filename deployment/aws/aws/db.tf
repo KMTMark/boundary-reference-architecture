@@ -14,7 +14,7 @@ resource "aws_db_instance" "boundary" {
 
   vpc_security_group_ids = [aws_security_group.db.id]
   db_subnet_group_name   = aws_db_subnet_group.boundary.name
-  publicly_accessible    = true
+  publicly_accessible    = false
 
   tags = {
     Name = "${var.tag}-db"
@@ -22,7 +22,7 @@ resource "aws_db_instance" "boundary" {
 }
 
 resource "aws_security_group" "db" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = data.aws_vpc.main.id
 
   tags = {
     Name = "${var.tag}-db-${random_pet.test.id}"
@@ -49,7 +49,7 @@ resource "aws_security_group_rule" "allow_controller_sg" {
 
 resource "aws_db_subnet_group" "boundary" {
   name       = "boundary"
-  subnet_ids = aws_subnet.private.*.id
+  subnet_ids = data.aws_subnets.private.ids
 
   tags = {
     Name = "${var.tag}-db-${random_pet.test.id}"
