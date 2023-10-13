@@ -59,7 +59,7 @@ variable "tls_key_path" {
 }
 
 variable "tls_disabled" {
-  default = true
+  default = false
 }
 
 variable "kms_type" {

@@ -1,26 +1,48 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-resource "boundary_host_catalog" "backend_servers" {
+## Demo Org
+
+resource "boundary_host_catalog_static" "backend_servers" {
   name        = "backend_servers"
   description = "Web servers for backend team"
-  type        = "static"
   scope_id    = boundary_scope.core_infra.id
 }
 
-resource "boundary_host" "backend_servers" {
+resource "boundary_host_static" "backend_servers" {
   for_each        = var.target_ips
-  type            = "static"
   name            = "backend_server_${each.value}"
   description     = "Backend server #${each.value}"
   address         = each.key
-  host_catalog_id = boundary_host_catalog.backend_servers.id
+  host_catalog_id = boundary_host_catalog_static.backend_servers.id
 }
 
-resource "boundary_host_set" "backend_servers" {
-  type            = "static"
+resource "boundary_host_set_static" "backend_servers" {
   name            = "backend_servers"
   description     = "Host set for backend servers"
-  host_catalog_id = boundary_host_catalog.backend_servers.id
-  host_ids        = [for host in boundary_host.backend_servers : host.id]
+  host_catalog_id = boundary_host_catalog_static.backend_servers.id
+  host_ids        = [for host in boundary_host_static.backend_servers : host.id]
+}
+
+## KMT Org
+
+resource "boundary_host_catalog_static" "kmt_backend_servers" {
+  name        = "backend_servers"
+  description = "Web servers for backend team"
+  scope_id    = boundary_scope.kmt_project.id
+}
+
+resource "boundary_host_static" "kmt_backend_servers" {
+  for_each        = var.target_ips
+  name            = "backend_server_${each.value}"
+  description     = "Backend server #${each.value}"
+  address         = each.key
+  host_catalog_id = boundary_host_catalog_static.kmt_backend_servers.id
+}
+
+resource "boundary_host_set_static" "kmt_backend_servers" {
+  name            = "backend_servers"
+  description     = "Host set for backend servers"
+  host_catalog_id = boundary_host_catalog_static.kmt_backend_servers.id
+  host_ids        = [for host in boundary_host_static.kmt_backend_servers : host.id]
 }

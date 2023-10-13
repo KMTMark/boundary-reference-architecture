@@ -15,9 +15,27 @@ resource "boundary_scope" "org" {
 
 // create a project for core infrastructure
 resource "boundary_scope" "core_infra" {
-  name                     = "core_infra"
-  description              = "Backend infrastrcture project"
-  scope_id                 = boundary_scope.org.id
-  auto_create_admin_role   = true
-  auto_create_default_role = true
+  name        = "core_infra"
+  description = "Backend infrastrcture project"
+  scope_id    = boundary_scope.org.id
+  # auto_create_admin_role   = true
+  # auto_create_default_role = true
+}
+
+resource "boundary_scope" "kmt_org" {
+  scope_id    = "global"
+  name        = "Kheiron Medical"
+  description = "Corp Infrastructure"
+  # auto_create_default_role = true
+  # auto_create_admin_role   = true
+}
+
+## Project creation
+
+resource "boundary_scope" "kmt_project" {
+  name        = "Local Dev Testing"
+  description = "Manage local machines"
+  scope_id    = boundary_scope.kmt_org.id
+  # auto_create_admin_role   = true
+  # auto_create_default_role = true
 }

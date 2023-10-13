@@ -71,3 +71,85 @@ resource "boundary_role" "project_admin" {
     [for user in boundary_user.frontend : user.id],
   )
 }
+
+resource "boundary_role" "default_grants" {
+  description    = "Role created to provide default grants to users of scope at its creation time"
+  grant_scope_id = boundary_scope.kmt_project.id
+  grant_strings = [
+    "id=*;type=session;actions=list,read:self,cancel:self",
+    "type=target;actions=list"
+  ]
+  name = "Default org Grants"
+  principal_ids = [
+    "${boundary_managed_group.oidc_group_default.id}",
+  ]
+  scope_id = boundary_scope.kmt_project.id
+}
+
+resource "boundary_role" "kmt_proj_admin" {
+  description    = "Role created for administration of KMT - Local Dev Test by user u_1234567890"
+  grant_scope_id = boundary_scope.kmt_project.id
+  grant_strings = [
+    "id=*;type=*;actions=*",
+  ]
+  name = "Administration"
+  principal_ids = [
+  ]
+  scope_id = boundary_scope.kmt_project.id
+}
+
+resource "boundary_role" "kmt_org_admin" {
+  description    = "Role created for administration of KMT Org unit by user u_1234567890"
+  grant_scope_id = boundary_scope.kmt_org.id
+  grant_strings = [
+    "id=*;type=*;actions=*",
+  ]
+  name = "Administration"
+  principal_ids = [
+  ]
+  scope_id = boundary_scope.kmt_org.id
+}
+
+## OIDC Groups and Roles
+
+# Default Group and Role
+
+resource "boundary_managed_group" "oidc_group_default" {
+  name           = "KMT-OneLogin"
+  description    = "OIDC managed group for OneLogin"
+  auth_method_id = boundary_auth_method_oidc.provider.id
+  filter         = "\"kheironmed\" in \"/userinfo/email\""
+}
+
+resource "boundary_role" "oidc_role_default" {
+  name          = "List and Read"
+  description   = "List and read role"
+  principal_ids = [boundary_managed_group.oidc_group_default.id]
+  grant_strings = ["id=*;type=role;actions=list,read"]
+  scope_id      = boundary_scope.kmt_org.id
+}
+
+# Systems Group and Role
+
+resource "boundary_managed_group" "oidc_group_systems" {
+  name           = "Systems Team"
+  description    = "OIDC managed group for Systems team"
+  auth_method_id = boundary_auth_method_oidc.provider.id
+  filter         = "\";Systems;\" in \"/userinfo/groups\""
+}
+
+resource "boundary_role" "oidc_role_systems" {
+  name          = "Systems Scope Admin"
+  description   = "Systems Admin role - Scope"
+  principal_ids = [boundary_managed_group.oidc_group_systems.id]
+  grant_strings = ["id=*;type=*;actions=*"]
+  scope_id      = boundary_scope.kmt_org.id
+}
+
+resource "boundary_role" "oidc_project_role_systems" {
+  name          = "Systems Project Admin"
+  description   = "Systems Admin role - Project"
+  principal_ids = [boundary_managed_group.oidc_group_systems.id]
+  grant_strings = ["id=*;type=*;actions=*"]
+  scope_id      = boundary_scope.kmt_project.id
+}

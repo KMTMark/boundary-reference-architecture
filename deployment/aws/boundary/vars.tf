@@ -41,3 +41,4 @@ variable "target_ips" {
 variable "kms_recovery_key_id" {
   default = ""
 }
+
