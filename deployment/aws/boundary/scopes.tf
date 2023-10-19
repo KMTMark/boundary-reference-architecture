@@ -3,13 +3,13 @@
 
 resource "boundary_scope" "global" {
   global_scope = true
-  name         = "global"
+  name         = "Global"
   scope_id     = "global"
 }
 
 resource "boundary_scope" "org" {
   scope_id    = boundary_scope.global.id
-  name        = "organization"
+  name        = "Organization"
   description = "Organization scope"
 }
 
@@ -23,7 +23,7 @@ resource "boundary_scope" "core_infra" {
 }
 
 resource "boundary_scope" "kmt_org" {
-  scope_id    = "global"
+  scope_id    = boundary_scope.global.id
   name        = "Kheiron Medical"
   description = "Corp Infrastructure"
   # auto_create_default_role = true

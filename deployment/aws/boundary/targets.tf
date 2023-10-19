@@ -38,3 +38,15 @@ resource "boundary_target" "aws_test_servers_ssh" {
     boundary_host_set_static.kmt_backend_servers.id
   ]
 }
+
+resource "boundary_target" "mlserver06_ssh" {
+  type                     = "tcp"
+  name                     = "ML Server 06"
+  description              = "4D Test SSH target"
+  scope_id                 = boundary_scope.kmt_project.id
+  session_connection_limit = -1
+  default_port             = 22
+  host_source_ids = [
+    boundary_host_set_static.kmt_ml_servers.id
+  ]
+}

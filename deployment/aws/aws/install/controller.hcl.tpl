@@ -21,8 +21,8 @@ listener "tcp" {
 	tls_disable                       = true
 %{ else }
   tls_disable   = false
-  tls_cert_file = "${tls_cert_path}"  
-  tls_key_file  = "${tls_key_path}"
+  tls_cert_file = "${le_base_path}${base_domain}/fullchain.pem"  
+  tls_key_file  = "${le_base_path}${base_domain}/privkey.pem"
 %{ endif }
 	# proxy_protocol_behavior         = "allow_authorized"
 	# proxy_protocol_authorized_addrs = "127.0.0.1"
@@ -42,6 +42,16 @@ listener "tcp" {
 %{ endif }
 	# proxy_protocol_behavior         = "allow_authorized"
 	# proxy_protocol_authorized_addrs = "127.0.0.1"
+}
+
+listener "tcp" {
+  # Should be the address of the NIC where your external systems'
+  # (eg: Load-Balancer) will connect on.
+  address = "${private_ip}:9203"
+  # The purpose of this listener block
+  purpose = "ops"
+
+  tls_disable = true
 }
 
 %{ if kms_type == "aws" }

@@ -4,22 +4,24 @@
 terraform {
   required_providers {
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
       version = "~> 3.0"
     }
   }
 }
 
 module "aws" {
-  source           = "./aws"
-  boundary_bin     = var.boundary_bin
-  pub_ssh_key_path = var.pub_ssh_key_path
+  source            = "./aws"
+  boundary_bin      = var.boundary_bin
+  pub_ssh_key_path  = var.pub_ssh_key_path
   priv_ssh_key_path = var.priv_ssh_key_path
 }
 
 module "boundary" {
   source              = "./boundary"
-  url                 = "http://${module.aws.boundary_lb}:9200"
+  url                 = "https://boundary-poc.syslab.kmed.co"
   target_ips          = module.aws.target_ips
   kms_recovery_key_id = module.aws.kms_recovery_key_id
+  aws_lb_dns_name     = module.aws.boundary_lb
 }
+

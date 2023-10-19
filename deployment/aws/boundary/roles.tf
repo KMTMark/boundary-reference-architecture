@@ -27,6 +27,21 @@ resource "boundary_role" "org_anon_listing" {
   principal_ids = ["u_anon"]
 }
 
+# Allows anonymous (un-authenticated) users to list and authenticate against any
+# auth method, list the global scope, and read and change password on their account ID
+# at the org level scope
+resource "boundary_role" "kmt_org_anon_listing" {
+  scope_id    = boundary_scope.kmt_org.id
+  name        = "List KMT Org for login"
+  description = "Show org on login page"
+  grant_strings = [
+    "id=*;type=auth-method;actions=list,authenticate",
+    "type=scope;actions=list",
+    "id={{account.id}};actions=read,change-password"
+  ]
+  principal_ids = ["u_anon"]
+}
+
 # Creates a role in the global scope that's granting administrative access to 
 # resources in the org scope for all backend users
 resource "boundary_role" "org_admin" {
@@ -81,31 +96,33 @@ resource "boundary_role" "default_grants" {
   ]
   name = "Default org Grants"
   principal_ids = [
-    "${boundary_managed_group.oidc_group_default.id}",
+    boundary_managed_group.oidc_group_default.id
   ]
-  scope_id = boundary_scope.kmt_project.id
+  scope_id = boundary_scope.kmt_org.id
 }
 
 resource "boundary_role" "kmt_proj_admin" {
-  description    = "Role created for administration of KMT - Local Dev Test by user u_1234567890"
+  description    = "Role created for administration of KMT - Local Dev Test project0"
   grant_scope_id = boundary_scope.kmt_project.id
   grant_strings = [
     "id=*;type=*;actions=*",
   ]
   name = "Administration"
   principal_ids = [
+    boundary_managed_group.oidc_group_systems.id
   ]
   scope_id = boundary_scope.kmt_project.id
 }
 
 resource "boundary_role" "kmt_org_admin" {
-  description    = "Role created for administration of KMT Org unit by user u_1234567890"
+  description    = "Role created for administration of KMT Org unit"
   grant_scope_id = boundary_scope.kmt_org.id
   grant_strings = [
     "id=*;type=*;actions=*",
   ]
   name = "Administration"
   principal_ids = [
+    boundary_managed_group.oidc_group_systems.id
   ]
   scope_id = boundary_scope.kmt_org.id
 }
@@ -117,7 +134,7 @@ resource "boundary_role" "kmt_org_admin" {
 resource "boundary_managed_group" "oidc_group_default" {
   name           = "KMT-OneLogin"
   description    = "OIDC managed group for OneLogin"
-  auth_method_id = boundary_auth_method_oidc.provider.id
+  auth_method_id = boundary_auth_method_oidc.onelogin.id
   filter         = "\"kheironmed\" in \"/userinfo/email\""
 }
 
@@ -134,7 +151,7 @@ resource "boundary_role" "oidc_role_default" {
 resource "boundary_managed_group" "oidc_group_systems" {
   name           = "Systems Team"
   description    = "OIDC managed group for Systems team"
-  auth_method_id = boundary_auth_method_oidc.provider.id
+  auth_method_id = boundary_auth_method_oidc.onelogin.id
   filter         = "\";Systems;\" in \"/userinfo/groups\""
 }
 

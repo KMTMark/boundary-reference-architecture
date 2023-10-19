@@ -5,7 +5,7 @@ terraform {
   required_providers {
     boundary = {
       source  = "hashicorp/boundary"
-      version = "1.1.10"
+      version = "1.1.9"
     }
   }
 }
@@ -16,6 +16,7 @@ provider "boundary" {
 kms "awskms" {
 	purpose    = "recovery"
         kms_key_id = "${var.kms_recovery_key_id}"
+  region     = "eu-west-1"      
 }
 EOT
 }

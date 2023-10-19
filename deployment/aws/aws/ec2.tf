@@ -54,17 +54,29 @@ resource "aws_instance" "worker" {
     ]
   }
 
+  # provisioner "file" {
+  #   source      = "${var.boundary_bin}/boundary"
+  #   destination = "/tmp/boundary"
+  # }
+
   provisioner "file" {
-    source      = "${var.boundary_bin}/boundary"
-    destination = "/tmp/boundary"
+    source      = "${path.module}/install/apt-install.sh"
+    destination = "/home/ubuntu/apt-install.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mv /tmp/boundary /usr/local/bin/boundary",
-      "sudo chmod 0755 /usr/local/bin/boundary",
+      "sudo chmod 0755 /home/ubuntu/apt-install.sh",
+      "sudo sh /home/ubuntu/apt-install.sh"
     ]
   }
+
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "sudo mv /tmp/boundary /usr/local/bin/boundary",
+  #     "sudo chmod 0755 /usr/local/bin/boundary",
+  #   ]
+  # }
 
   provisioner "file" {
     content = templatefile("${path.module}/install/worker.hcl.tpl", {
@@ -130,17 +142,37 @@ resource "aws_instance" "controller" {
     ]
   }
 
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /etc/letsencrypt/live/${aws_route53_zone.base_domain.name}",
+      "echo '${acme_certificate.certificate.certificate_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.base_domain.name}/fullchain.pem",
+      "echo '${tls_private_key.cert_private_key.private_key_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.base_domain.name}/privkey.pem",
+    ]
+  }
+
+  # provisioner "file" {
+  # source      = "${var.boundary_bin}/boundary"
+  # destination = "/tmp/boundary"
+  # }
+
   provisioner "file" {
-    source      = "${var.boundary_bin}/boundary"
-    destination = "/tmp/boundary"
+    source      = "${path.module}/install/apt-install.sh"
+    destination = "/home/ubuntu/apt-install.sh"
   }
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mv /tmp/boundary /usr/local/bin/boundary",
-      "sudo chmod 0755 /usr/local/bin/boundary",
+      "sudo chmod 0755 /home/ubuntu/apt-install.sh",
+      "sudo sh /home/ubuntu/apt-install.sh"
     ]
   }
+
+  # provisioner "remote-exec" {
+  #   inline = [
+  #     "sudo mv /tmp/boundary /usr/local/bin/boundary",
+  #     "sudo chmod 0755 /usr/local/bin/boundary",
+  #   ]
+  # }
 
   provisioner "file" {
     content = templatefile("${path.module}/install/controller.hcl.tpl", {
@@ -154,6 +186,8 @@ resource "aws_instance" "controller" {
       kms_worker_auth_key_id = aws_kms_key.worker_auth.id
       kms_recovery_key_id    = aws_kms_key.recovery.id
       kms_root_key_id        = aws_kms_key.root.id
+      le_base_path           = var.le_base_path
+      base_domain            = aws_route53_zone.base_domain.name
     })
     destination = "/tmp/boundary-controller.hcl"
   }
@@ -177,6 +211,7 @@ resource "aws_instance" "controller" {
   tags = {
     Name = "${var.tag}-controller-${random_pet.test.id}"
   }
+  depends_on = [acme_certificate.certificate]
 }
 
 resource "aws_security_group" "controller" {
@@ -196,14 +231,13 @@ resource "aws_security_group_rule" "allow_ssh_controller" {
   security_group_id = aws_security_group.controller.id
 }
 
-resource "aws_security_group_rule" "allow_9200_controller" {
+resource "aws_security_group_rule" "allow_9200_lb_controller" {
   type                     = "ingress"
   from_port                = 9200
   to_port                  = 9200
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.controller_lb.id
-  # cidr_blocks       = [data.aws_subnet_ids.cidr_blocks]
-  security_group_id = aws_security_group.controller.id
+  security_group_id        = aws_security_group.controller.id
 }
 
 resource "aws_security_group_rule" "allow_9201_lb_controller" {
@@ -212,8 +246,16 @@ resource "aws_security_group_rule" "allow_9201_lb_controller" {
   to_port                  = 9201
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.controller_lb.id
-  # cidr_blocks       = ["172.30.0.0/24"]
-  security_group_id = aws_security_group.controller.id
+  security_group_id        = aws_security_group.controller.id
+}
+
+resource "aws_security_group_rule" "allow_9203_lb_hc_controller" {
+  type                     = "ingress"
+  from_port                = 9203
+  to_port                  = 9203
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.controller_lb.id
+  security_group_id        = aws_security_group.controller.id
 }
 
 resource "aws_security_group_rule" "allow_9201_worker_controller" {

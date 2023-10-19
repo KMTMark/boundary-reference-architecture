@@ -1,3 +1,4 @@
 output "auth-method-id" {
-  value = boundary_auth_method_oidc.provider.id
+  description = "OneLogin Auth Method ID:"
+  value       = boundary_auth_method_oidc.onelogin.id
 }

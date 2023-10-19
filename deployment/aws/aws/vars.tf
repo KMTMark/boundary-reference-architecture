@@ -58,6 +58,10 @@ variable "tls_key_path" {
   default = "/etc/pki/tls/boundary/boundary.key"
 }
 
+variable "le_base_path" {
+  default = "/etc/letsencrypt/live/"
+}
+
 variable "tls_disabled" {
   default = false
 }
@@ -68,4 +72,8 @@ variable "kms_type" {
 
 variable "vpc_name" {
   default = "boundary-poc"
+}
+
+variable "boundary_url" {
+  default = "https://releases.hashicorp.com/boundary/0.14.0/boundary_0.14.0_linux_amd64.zip"
 }
