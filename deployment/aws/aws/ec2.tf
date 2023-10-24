@@ -12,6 +12,9 @@ resource "aws_key_pair" "boundary" {
   tags = local.tags
 }
 
+data "aws_region" "current" {
+}
+
 data "aws_ami" "ubuntu" {
   most_recent = true
 
@@ -144,9 +147,9 @@ resource "aws_instance" "controller" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mkdir -p /etc/letsencrypt/live/${aws_route53_zone.base_domain.name}",
-      "echo '${acme_certificate.certificate.certificate_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.base_domain.name}/fullchain.pem",
-      "echo '${tls_private_key.cert_private_key.private_key_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.base_domain.name}/privkey.pem",
+      "sudo mkdir -p /etc/letsencrypt/live/${aws_route53_zone.boundary_base_domain.name}",
+      "echo '${acme_certificate.boundary_certificate.certificate_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.boundary_base_domain.name}/fullchain.pem",
+      "echo '${tls_private_key.cert_private_key.private_key_pem}' | sudo tee ${var.le_base_path}${aws_route53_zone.boundary_base_domain.name}/privkey.pem",
     ]
   }
 
@@ -187,7 +190,7 @@ resource "aws_instance" "controller" {
       kms_recovery_key_id    = aws_kms_key.recovery.id
       kms_root_key_id        = aws_kms_key.root.id
       le_base_path           = var.le_base_path
-      base_domain            = aws_route53_zone.base_domain.name
+      base_domain            = aws_route53_zone.boundary_base_domain.name
     })
     destination = "/tmp/boundary-controller.hcl"
   }
@@ -211,7 +214,7 @@ resource "aws_instance" "controller" {
   tags = {
     Name = "${var.tag}-controller-${random_pet.test.id}"
   }
-  depends_on = [acme_certificate.certificate]
+  depends_on = [acme_certificate.boundary_certificate]
 }
 
 resource "aws_security_group" "controller" {
@@ -369,4 +372,196 @@ resource "aws_security_group_rule" "allow_worker_web_target" {
   protocol                 = "tcp"
   source_security_group_id = aws_security_group.worker.id
   security_group_id        = aws_security_group.target.id
+}
+
+## Vault Config
+
+/**
+ * Copyright © 2014-2022 HashiCorp, Inc.
+ *
+ * This Source Code is subject to the terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this project, you can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ */
+
+resource "aws_security_group" "vault" {
+  name   = "${var.tag}-${random_pet.test.id}-vault-sg"
+  vpc_id = data.aws_vpc.main.id
+
+  tags = merge(
+    { Name = "${var.tag}-${random_pet.test.id}-vault-sg" },
+    var.common_tags,
+  )
+}
+
+resource "aws_security_group_rule" "vault_internal_api" {
+  description       = "Allow Vault nodes to reach other on port 8200 for API"
+  security_group_id = aws_security_group.vault.id
+  type              = "ingress"
+  from_port         = 8200
+  to_port           = 8200
+  protocol          = "tcp"
+  self              = true
+}
+
+resource "aws_security_group_rule" "vault_internal_raft" {
+  description       = "Allow Vault nodes to communicate on port 8201 for replication traffic, request forwarding, and Raft gossip"
+  security_group_id = aws_security_group.vault.id
+  type              = "ingress"
+  from_port         = 8201
+  to_port           = 8201
+  protocol          = "tcp"
+  self              = true
+}
+
+# The following data source gets used if the user has
+# specified a network load balancer.
+# This will lock down the EC2 instance security group to
+# just the subnets that the load balancer spans
+# (which are the private subnets the Vault instances use)
+
+data "aws_subnet" "subnet" {
+  count = length(data.aws_subnets.private.ids)
+  id    = data.aws_subnets.private.ids[count.index]
+}
+
+locals {
+  subnet_cidr_blocks = [for s in data.aws_subnet.subnet : s.cidr_block]
+}
+
+resource "aws_security_group_rule" "vault_network_lb_inbound" {
+  count             = var.lb_type == "network" ? 1 : 0
+  description       = "Allow load balancer to reach Vault nodes on port 8200"
+  security_group_id = aws_security_group.vault.id
+  type              = "ingress"
+  from_port         = 8200
+  to_port           = 8200
+  protocol          = "tcp"
+  cidr_blocks       = local.subnet_cidr_blocks
+}
+
+resource "aws_security_group_rule" "vault_application_lb_inbound" {
+  count                    = var.lb_type == "application" ? 1 : 0
+  description              = "Allow load balancer to reach Vault nodes on port 8200"
+  security_group_id        = aws_security_group.vault.id
+  type                     = "ingress"
+  from_port                = 8200
+  to_port                  = 8200
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.vault_lb[count.index].id
+}
+
+resource "aws_security_group_rule" "vault_network_lb_ingress" {
+  count             = var.lb_type == "network" && var.allowed_inbound_cidrs != null ? 1 : 0
+  description       = "Allow specified CIDRs access to load balancer and nodes on port 8200"
+  security_group_id = aws_security_group.vault.id
+  type              = "ingress"
+  from_port         = 8200
+  to_port           = 8200
+  protocol          = "tcp"
+  cidr_blocks       = var.allowed_inbound_cidrs
+}
+
+resource "aws_security_group_rule" "vault_ssh_inbound" {
+  count             = var.allowed_inbound_cidrs_ssh != null ? 1 : 0
+  description       = "Allow specified CIDRs SSH access to Vault nodes"
+  security_group_id = aws_security_group.vault.id
+  type              = "ingress"
+  from_port         = 22
+  to_port           = 22
+  protocol          = "tcp"
+  cidr_blocks       = var.allowed_inbound_cidrs_ssh
+}
+
+resource "aws_security_group_rule" "vault_outbound" {
+  description       = "Allow Vault nodes to send outbound traffic"
+  security_group_id = aws_security_group.vault.id
+  type              = "egress"
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+locals {
+  vault_user_data = templatefile(
+    var.user_supplied_userdata_path != null ? var.user_supplied_userdata_path : "${path.module}/install/install_vault.sh.tpl",
+    {
+      region                = data.aws_region.current.name
+      name                  = "${var.tag}-target-${random_pet.test.id}-vault-ec2"
+      vault_version         = var.vault_version
+      kms_key_arn           = aws_kms_key.vault.arn
+      secrets_manager_arn   = aws_secretsmanager_secret.tls.arn
+      leader_tls_servername = var.shared_san
+    }
+  )
+}
+
+resource "aws_launch_template" "vault" {
+  name          = "${var.tag}-target-${random_pet.test.id}-vault"
+  image_id      = var.user_supplied_ami_id != null ? var.user_supplied_ami_id : data.aws_ami.ubuntu.id
+  instance_type = var.instance_type
+  key_name      = var.key_name != null ? var.key_name : null
+  user_data     = base64encode(local.vault_user_data)
+  vpc_security_group_ids = [
+    aws_security_group.vault.id,
+  ]
+
+  block_device_mappings {
+    device_name = "/dev/sda1"
+
+    ebs {
+      volume_type           = "gp3"
+      volume_size           = 100
+      throughput            = 150
+      iops                  = 3000
+      delete_on_termination = true
+    }
+  }
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.vault.name
+  }
+
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+}
+
+resource "aws_autoscaling_group" "vault" {
+  name                = "${var.tag}-${random_pet.test.id}-vault-asg"
+  min_size            = var.node_count
+  max_size            = var.node_count
+  desired_capacity    = var.node_count
+  vpc_zone_identifier = data.aws_subnets.private.ids
+  target_group_arns   = [aws_lb_target_group.vault.arn]
+
+  launch_template {
+    id      = aws_launch_template.vault.id
+    version = "$Latest"
+  }
+
+  tags = concat(
+    [
+      {
+        key                 = "Name"
+        value               = "${var.tag}-${random_pet.test.id}-vault-server"
+        propagate_at_launch = true
+      }
+    ],
+    [
+      {
+        key                 = "${var.tag}-${random_pet.test.id}-vault"
+        value               = "server"
+        propagate_at_launch = true
+      }
+    ],
+    [
+      for k, v in var.common_tags : {
+        key                 = k
+        value               = v
+        propagate_at_launch = true
+      }
+    ]
+  )
 }

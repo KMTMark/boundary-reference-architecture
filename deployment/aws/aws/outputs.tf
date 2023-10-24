@@ -12,3 +12,5 @@ output "target_ips" {
 output "kms_recovery_key_id" {
   value = aws_kms_key.recovery.id
 }
+
+## Vault Outputs
