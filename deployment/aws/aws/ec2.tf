@@ -271,6 +271,15 @@ resource "aws_security_group_rule" "allow_9201_worker_controller" {
   security_group_id = aws_security_group.controller.id
 }
 
+resource "aws_security_group_rule" "allow_9200_vault_controller" {
+  type                     = "ingress"
+  from_port                = 9200
+  to_port                  = 9200
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.vault.id
+  security_group_id        = aws_security_group.controller.id
+}
+
 resource "aws_security_group_rule" "allow_egress_controller" {
   type              = "egress"
   from_port         = 0
@@ -306,6 +315,7 @@ resource "aws_security_group_rule" "allow_controller_ssh_worker" {
   # cidr_blocks       = ["172.30.0.0/24"]
   security_group_id = aws_security_group.worker.id
 }
+
 
 resource "aws_security_group_rule" "allow_web_worker" {
   type              = "ingress"
@@ -480,6 +490,17 @@ resource "aws_security_group_rule" "vault_outbound" {
   to_port           = 0
   protocol          = "-1"
   cidr_blocks       = ["0.0.0.0/0"]
+}
+
+resource "aws_security_group_rule" "controller_vault_inbound" {
+  count                    = var.lb_type == "application" ? 1 : 0
+  description              = "Allow load balancer to reach Vault nodes on port 8200"
+  security_group_id        = aws_security_group.vault.id
+  type                     = "ingress"
+  from_port                = 8200
+  to_port                  = 8200
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.controller.id
 }
 
 locals {

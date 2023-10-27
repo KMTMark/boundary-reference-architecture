@@ -7,6 +7,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 3.0"
     }
+    boundary = {
+      source  = "hashicorp/boundary"
+      version = "1.1.10"
+    }    
   }
 }
 
